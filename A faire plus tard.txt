@@ -1,0 +1,1 @@
+- Lancer l'application et l'heberger sur github (Pouvoir le lancer a n'importe quelle moment sur telephone via lien.)

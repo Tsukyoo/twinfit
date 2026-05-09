@@ -1,0 +1,132 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply box-border;
+  }
+
+  html {
+    @apply antialiased;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-background text-text-main font-sans;
+    @apply min-h-screen;
+    overscroll-behavior: none;
+  }
+
+  #root {
+    @apply min-h-screen;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply max-w-mobile mx-auto min-h-screen relative;
+    @apply bg-background;
+  }
+
+  .mobile-frame {
+    @apply max-w-mobile mx-auto min-h-screen;
+    @apply bg-background;
+    @apply shadow-apple-lg;
+  }
+
+  @media (min-width: 640px) {
+    .mobile-frame {
+      @apply rounded-[40px] my-8 min-h-[calc(100vh-4rem)];
+      @apply overflow-hidden;
+    }
+  }
+
+  .apple-card {
+    @apply bg-white/80 backdrop-blur-xl rounded-apple;
+    @apply shadow-apple border border-white;
+    @apply overflow-hidden;
+    @apply transition-all duration-200;
+  }
+
+  .apple-card:active {
+    @apply scale-[0.98];
+  }
+
+  .apple-card-lg {
+    @apply bg-white/80 backdrop-blur-xl rounded-apple-lg;
+    @apply shadow-apple-lg border border-white;
+    @apply overflow-hidden;
+  }
+
+  .glass-header {
+    @apply bg-white/60 backdrop-blur-xl;
+    @apply border-b border-white/50;
+  }
+
+  .glass-nav {
+    @apply bg-white/80 backdrop-blur-2xl;
+    @apply border border-white/50;
+    @apply rounded-[32px];
+    @apply shadow-nav;
+  }
+
+  .profile-gradient-teoman {
+    @apply bg-gradient-to-br from-teoman-primary to-teoman-secondary;
+  }
+
+  .profile-gradient-denizhan {
+    @apply bg-gradient-to-br from-denizhan-secondary to-denizhan-primary;
+  }
+
+  .text-gradient-teoman {
+    @apply bg-gradient-to-r from-teoman-primary to-teoman-secondary bg-clip-text text-transparent;
+  }
+
+  .text-gradient-denizhan {
+    @apply bg-gradient-to-r from-denizhan-secondary to-denizhan-primary bg-clip-text text-transparent;
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom, 24px);
+  }
+
+  .safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
+}
+
+/* Hide native number input spinners globally — custom ± buttons are used instead */
+input[type='number']::-webkit-outer-spin-button,
+input[type='number']::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+body.sheet-open .bottom-nav-bar {
+  display: none;
+}
+
+@layer utilities {
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .hide-scrollbar {
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+
+  .hide-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}
