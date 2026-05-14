@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { AlertTriangle, Play, ChevronRight, Plus } from 'lucide-react';
 import { cn } from '@utils/cn';
 import { AppleCard } from '@components/AppleCard';
@@ -10,8 +10,10 @@ import { RestTimerSheet } from './RestTimerSheet';
 import { WorkoutRecapPage } from './WorkoutRecapPage';
 import { useActiveWorkout } from '../../hooks/useActiveWorkout';
 import { useExerciseRecommendation } from '../../hooks/useExerciseRecommendation';
+import { useLastSetPerformance, filterLogsToCompletedSessions } from '../../hooks/useLastSetPerformance';
+import { getSettings } from '../../utils/storage';
 import { getExerciseById } from '../../data/exercises';
-import type { ProfileId } from '../../types';
+import type { ProfileId, BonusWorkoutType } from '../../types';
 
 interface ActiveWorkoutPageProps {
   profileId: ProfileId;
@@ -33,15 +35,102 @@ const VISUALS = {
 
 export function ActiveWorkoutPage({ profileId, planId }: ActiveWorkoutPageProps) {
   const navigate = useNavigate();
-  const { state, actions } = useActiveWorkout(profileId, planId);
+  const [searchParams] = useSearchParams();
+  
+  // Detect bonus workout from URL query params
+  const isBonus = searchParams.get('bonus') === 'true' || planId.startsWith('bonus-');
+  const bonusType = (searchParams.get('type') as BonusWorkoutType) || undefined;
+  const sourcePlanId = searchParams.get('source') || undefined;
+  
+  const soundEnabled = getSettings().restTimerSound;
+  const [restDoneFlash, setRestDoneFlash] = useState(false);
+  const prevPhaseRef = useRef<string>('loading');
+  const { state, actions, allHistoricalLogs, completedSessionIds } = useActiveWorkout(profileId, planId, {
+    isBonus,
+    bonusType,
+    sourcePlanId,
+    soundEnabled,
+  });
   const visuals = VISUALS[profileId];
   const [showAbandonConfirm, setShowAbandonConfirm] = useState(false);
+
+  // Flash "Repos terminé" for 900ms when rest ends naturally
+  useEffect(() => {
+    if (prevPhaseRef.current === 'rest' && state.phase === 'active') {
+      setRestDoneFlash(true);
+      const t = setTimeout(() => setRestDoneFlash(false), 900);
+      return () => clearTimeout(t);
+    }
+    prevPhaseRef.current = state.phase;
+  }, [state.phase]);
+
+  // ── Derived state (must be before any conditional returns) ──────────────
+  const currentPlan = useMemo(() => state.plan, [state.plan]);
+  const currentPlanExercise = useMemo(() => {
+    if (!currentPlan) return null;
+    return currentPlan.exercises[state.currentExerciseIndex] ?? null;
+  }, [currentPlan, state.currentExerciseIndex]);
+  const currentExercise = useMemo(() => {
+    if (!currentPlanExercise) return null;
+    return getExerciseById(currentPlanExercise.exerciseId) ?? null;
+  }, [currentPlanExercise]);
+
+  // ── Hooks must be called before any conditional returns ──────────────────
+  const { recommendation } = useExerciseRecommendation(
+    profileId,
+    currentExercise?.id ?? null,
+    currentPlanExercise,
+    currentExercise
+  );
+
+  // Completed-session logs only — filtered from the already-loaded ref
+  const completedLogs = useMemo(
+    () => filterLogsToCompletedSessions(allHistoricalLogs.current, completedSessionIds.current),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Re-compute when exercise or phase changes (phase change = sets added)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [state.currentExerciseIndex, state.phase, state.completedSets.length]
+  );
+
+  const lastSetPerformanceMap = useLastSetPerformance(
+    currentExercise?.id ?? null,
+    completedLogs,
+    state.currentInput.isBonus,
+  );
+
+  const currentLastSetPerf = lastSetPerformanceMap.get(state.currentSetIndex) ?? null;
 
   // ── Loading ────────────────────────────────────────────────────────────
   if (state.phase === 'loading') {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
         <div className="w-10 h-10 rounded-full border-4 border-surface-muted border-t-current animate-spin" />
+      </div>
+    );
+  }
+
+  // ── Error ───────────────────────────────────────────────────────────────
+  if (state.phase === 'error') {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center px-6 gap-5">
+        <div className="w-16 h-16 rounded-3xl bg-ios-red/10 flex items-center justify-center">
+          <AlertTriangle className="w-8 h-8 text-ios-red" />
+        </div>
+        <div className="text-center">
+          <h2 className="text-xl font-bold text-text-main mb-2">Erreur de chargement</h2>
+          <p className="text-sm text-text-secondary">
+            {state.error || 'Impossible de charger la séance. Vérifie que la séance existe et réessaie.'}
+          </p>
+        </div>
+        <div className="w-full space-y-3">
+          <button
+            onClick={() => navigate('/dashboard', { replace: true })}
+            className="w-full py-4 rounded-2xl text-white font-bold text-sm flex items-center justify-center gap-2 bg-ios-blue"
+          >
+            <ChevronRight className="w-4 h-4 rotate-180" />
+            Retour au tableau de bord
+          </button>
+        </div>
       </div>
     );
   }
@@ -206,29 +295,21 @@ export function ActiveWorkoutPage({ profileId, planId }: ActiveWorkoutPageProps)
   }
 
   // ── Main active screen ────────────────────────────────────────────────
-  if (!exercise || !planEx) return null;
-
-  // Get progression recommendation for this exercise
-  const { recommendation } = useExerciseRecommendation(
-    profileId,
-    exercise.id,
-    planEx,
-    exercise
-  );
+  if (!currentExercise || !currentPlanExercise) return null;
 
   // Build "next" label for rest timer.
   // After validateSet, state.currentSetIndex is already the 0-based index of the NEXT set to perform.
   // Display it as 1-based: currentSetIndex + 1.
-  const nextLabel = state.currentSetIndex < planEx.targetSets
-    ? `Série ${state.currentSetIndex + 1}/${planEx.targetSets}`
-    : state.currentExerciseIndex + 1 < plan.exercises.length
+  const nextLabel = state.currentSetIndex < currentPlanExercise.targetSets
+    ? `Série ${state.currentSetIndex + 1}/${currentPlanExercise.targetSets}`
+    : state.currentExerciseIndex + 1 < currentPlan!.exercises.length
       ? `Exercice suivant`
       : 'Fin de séance';
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <WorkoutProgressHeader
-        plan={plan}
+        plan={currentPlan!}
         currentExerciseIndex={state.currentExerciseIndex}
         gradient={visuals.gradient}
         onAbandon={() => setShowAbandonConfirm(true)}
@@ -237,12 +318,12 @@ export function ActiveWorkoutPage({ profileId, planId }: ActiveWorkoutPageProps)
       <div className="flex-1 overflow-y-auto px-4 py-4 space-y-4 pb-8">
         {/* Exercise info */}
         <WorkoutExerciseCard
-          exercise={exercise}
-          planEx={planEx}
+          exercise={currentExercise!}
+          planEx={currentPlanExercise}
           currentSetIndex={state.currentSetIndex}
           accentColor={visuals.accentColor}
           accentBg={visuals.accentBg}
-          trackingType={planEx.trackingType}
+          trackingType={currentPlanExercise.trackingType}
           recommendation={recommendation}
         />
 
@@ -250,34 +331,35 @@ export function ActiveWorkoutPage({ profileId, planId }: ActiveWorkoutPageProps)
         <SetInputCard
           input={state.currentInput}
           setIndex={state.currentSetIndex}
-          targetSets={planEx.targetSets}
-          minReps={planEx.minReps}
-          maxReps={planEx.maxReps}
+          targetSets={currentPlanExercise.targetSets}
+          minReps={currentPlanExercise.minReps}
+          maxReps={currentPlanExercise.maxReps}
           gradient={visuals.gradient}
-          exerciseCategory={exercise.category}
-          trackingType={planEx.trackingType}
+          exerciseCategory={currentExercise!.category}
+          trackingType={currentPlanExercise.trackingType}
           isBonus={state.currentInput.isBonus}
           onChange={actions.updateInput}
           onValidate={() => actions.validateSet().catch(console.error)}
           recommendation={recommendation}
+          lastSetPerf={currentLastSetPerf}
         />
 
         {/* Previous sets this exercise */}
-        {state.completedSets.filter((s) => s.exerciseId === planEx.exerciseId).length > 0 && (
+        {state.completedSets.filter((s) => s.exerciseId === currentPlanExercise.exerciseId).length > 0 && (
           <AppleCard className="p-4">
             <p className="text-xs font-bold text-text-secondary uppercase tracking-wide mb-2">
               Séries réalisées
             </p>
             <div className="space-y-1.5">
               {state.completedSets
-                .filter((s) => s.exerciseId === planEx.exerciseId)
+                .filter((s) => s.exerciseId === currentPlanExercise.exerciseId)
                 .map((s, i) => (
                   <div key={s.id} className="flex items-center justify-between">
                     <span className="text-xs text-text-secondary">Série {i + 1}</span>
                     <span className={cn('text-xs font-semibold', visuals.accentColor)}>
-                      {planEx.trackingType === 'minutes'
+                      {currentPlanExercise.trackingType === 'minutes'
                         ? `${s.reps} min`
-                        : planEx.trackingType === 'seconds'
+                        : currentPlanExercise.trackingType === 'seconds'
                           ? `${s.reps} sec`
                           : `${s.weightKg} kg × ${s.reps} reps`
                       }{s.rpe ? ` @ RPE ${s.rpe}` : ''}
@@ -288,6 +370,15 @@ export function ActiveWorkoutPage({ profileId, planId }: ActiveWorkoutPageProps)
           </AppleCard>
         )}
       </div>
+
+      {/* Repos terminé flash */}
+      {restDoneFlash && (
+        <div className="fixed inset-x-0 top-1/2 -translate-y-1/2 z-40 flex justify-center pointer-events-none">
+          <div className="px-6 py-3 rounded-2xl bg-ios-green text-white font-bold text-base shadow-apple animate-pulse">
+            ✓ Repos terminé
+          </div>
+        </div>
+      )}
 
       {/* Rest timer overlay */}
       {state.phase === 'rest' && state.restInfo && (

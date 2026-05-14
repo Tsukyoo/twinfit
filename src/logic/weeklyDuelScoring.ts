@@ -11,6 +11,7 @@ import type {
   NutritionLog,
   BodyLog,
   WeeklyCheckin,
+  SleepLog,
   Profile,
 } from '../types';
 
@@ -81,6 +82,7 @@ export interface DuelScore {
   nutritionTotal: number;
   weightTotal: number;
   checkinTotal: number;
+  sleepTotal: number;
 
   breakdown: BreakdownItem[];
 
@@ -130,6 +132,8 @@ export function computeWeeklyDuel(
     denizhanCheckin?: WeeklyCheckin;
     teomanPrevBodyLog?: BodyLog;  // last week's weight
     denizhanPrevBodyLog?: BodyLog;
+    teomanSleepLogs?: SleepLog[];
+    denizhanSleepLogs?: SleepLog[];
   }
 ): DuelResult {
   const weekEnd = getWeekEnd(weekStart);
@@ -142,6 +146,7 @@ export function computeWeeklyDuel(
     bodyLogs:   data.teomanBodyLogs,
     checkin:    data.teomanCheckin,
     prevBody:   data.teomanPrevBodyLog,
+    sleepLogs:  data.teomanSleepLogs ?? [],
   });
 
   const d = scoreProfile('denizhan', weekStart, weekEnd, data.denizhanProfile, {
@@ -152,6 +157,7 @@ export function computeWeeklyDuel(
     bodyLogs:   data.denizhanBodyLogs,
     checkin:    data.denizhanCheckin,
     prevBody:   data.denizhanPrevBodyLog,
+    sleepLogs:  data.denizhanSleepLogs ?? [],
   });
 
   const result = resolveWinner(t, d);
@@ -175,6 +181,7 @@ function scoreProfile(
     bodyLogs: BodyLog[];
     checkin?: WeeklyCheckin;
     prevBody?: BodyLog;
+    sleepLogs: SleepLog[];
   }
 ): DuelScore {
   const breakdown: BreakdownItem[] = [];
@@ -231,6 +238,29 @@ function scoreProfile(
   } else if (workoutStreak === 2) {
     sessionsTotal += 20;
     breakdown.push({ label: 'Streak 2 séances', pts: 20 });
+  }
+
+  // ── BONUS WORKOUTS ────────────────────────────────────────
+  // Bonus workouts: max 1/day, max 2/week count for points
+  const bonusSessions = weekSessions.filter(s => s.isBonusWorkout);
+  const countedBonusSessions: WorkoutSession[] = [];
+  const bonusPointsByDay = new Map<string, number>();
+
+  for (const session of bonusSessions) {
+    if (!session.endedAt) continue;
+    const day = session.endedAt.split('T')[0];
+    const currentCount = bonusPointsByDay.get(day) ?? 0;
+    
+    // Max 1 bonus per day counts
+    if (currentCount >= 1) continue;
+    
+    // Max 2 bonuses per week count
+    if (countedBonusSessions.length >= 2) break;
+    
+    countedBonusSessions.push(session);
+    bonusPointsByDay.set(day, currentCount + 1);
+    sessionsTotal += 30;
+    breakdown.push({ label: `Séance bonus: ${session.name}`, pts: 30 });
   }
 
   // ── 2. SETS ───────────────────────────────────────────────
@@ -402,11 +432,53 @@ function scoreProfile(
     }
     if ((data.checkin.averageSleepHours ?? 0) >= 7) {
       checkinTotal += 10;
-      breakdown.push({ label: 'Sommeil ≥ 7h', pts: 10 });
+      breakdown.push({ label: 'Sommeil ≥ 7h (check)', pts: 10 });
     }
   }
 
-  const total = sessionsTotal + setsTotal + progressionTotal + nutritionTotal + weightTotal + checkinTotal;
+  // ── 7. SOMMEIL ───────────────────────────────────────────
+  let sleepTotal = 0;
+  const weekSleepLogs = data.sleepLogs.filter(
+    (l) => l.date >= weekStart && l.date <= weekEnd
+  );
+
+  let sleepStreak = 0;
+  for (const log of weekSleepLogs) {
+    const mins = log.totalMinutes;
+    if (mins >= 420 && mins <= 540) {
+      // 7–9h optimal
+      sleepTotal += 15;
+      breakdown.push({ label: `Sommeil optimal — ${log.date}`, pts: 15 });
+    } else if (mins >= 360 && mins < 420) {
+      // 6–7h léger bonus
+      sleepTotal += 7;
+      breakdown.push({ label: `Sommeil correct — ${log.date}`, pts: 7 });
+    } else if (mins > 540) {
+      // >9h léger malus
+      sleepTotal -= 5;
+      breakdown.push({ label: `Sommeil trop long — ${log.date}`, pts: -5 });
+    } else if (mins > 0 && mins < 360) {
+      // <6h pénalité
+      sleepTotal -= 10;
+      breakdown.push({ label: `Sommeil insuffisant — ${log.date}`, pts: -10 });
+    }
+    // quality bonus
+    if (log.quality === 'excellent') { sleepTotal += 5; breakdown.push({ label: `Qualité excellente — ${log.date}`, pts: 5 }); }
+    else if (log.quality === 'good') { sleepTotal += 2; }
+    sleepStreak++;
+  }
+
+  // Streak: 5+ nights logged
+  if (sleepStreak >= 5) {
+    sleepTotal += 20;
+    breakdown.push({ label: `Streak sommeil ${sleepStreak} nuits`, pts: 20 });
+    badges.push('sleep_streak');
+  } else if (sleepStreak >= 3) {
+    sleepTotal += 10;
+    breakdown.push({ label: `Streak sommeil ${sleepStreak} nuits`, pts: 10 });
+  }
+
+  const total = sessionsTotal + setsTotal + progressionTotal + nutritionTotal + weightTotal + checkinTotal + sleepTotal;
 
   return {
     profileId,
@@ -418,6 +490,7 @@ function scoreProfile(
     nutritionTotal,
     weightTotal,
     checkinTotal,
+    sleepTotal,
     breakdown,
     sessionsCount,
     nutritionDaysRespected,

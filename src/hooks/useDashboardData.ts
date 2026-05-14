@@ -4,6 +4,7 @@ import { getTodaysWorkoutPlan, getWorkoutPlansByProfile } from '../data/workoutP
 import { getExerciseById } from '../data/exercises';
 import { bodyLogRepo, leaderboardScoreRepo, workoutSessionRepo } from '../db/repositories';
 import { seedInitialData } from '../db/seed';
+import { getDayOfWeek, getLocalDateISO } from '../utils/dates';
 
 export interface DashboardData {
   todaysPlan: WorkoutPlan | null;
@@ -39,7 +40,7 @@ export function useDashboardData(profileId: ProfileId): DashboardData {
       const today = getTodaysWorkoutPlan(profileId);
       const allPlans = getWorkoutPlansByProfile(profileId);
       const dayOrder = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
-      const todayDayIndex = new Date().getDay(); // 0=sun
+      const todayDayIndex = getDayOfWeek(); // 0=sun
 
       // Check if today's workout was already completed (local date)
       const completedToday = today
@@ -78,7 +79,7 @@ export function useDashboardData(profileId: ProfileId): DashboardData {
   const isRestDay = todaysPlan === null;
 
   const addWeightLog = useCallback(async (weightKg: number, waistCm?: number, notes?: string) => {
-    const today = new Date().toISOString().split('T')[0];
+    const today = getLocalDateISO();
     const now = new Date().toISOString();
     const existing = await bodyLogRepo.getByProfile(profileId)
       .then((all) => all.find((l) => l.date === today));
@@ -135,13 +136,13 @@ async function hasCompletedWorkoutToday(
   planId: string,
 ): Promise<boolean> {
   const sessions = await workoutSessionRepo.getByProfile(profileId);
-  const todayStr = new Date().toLocaleDateString('fr-FR'); // DD/MM/YYYY local
+  const todayStr = getLocalDateISO();
   return sessions.some(
     (s) =>
       s.workoutPlanId === planId &&
       s.status === 'completed' &&
       s.endedAt != null &&
-      new Date(s.endedAt).toLocaleDateString('fr-FR') === todayStr,
+      getLocalDateISO(new Date(s.endedAt)) === todayStr,
   );
 }
 

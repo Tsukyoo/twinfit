@@ -5,6 +5,7 @@ import { Calendar } from 'lucide-react';
 import type { ProfileId, WorkoutDay } from '../../types';
 import { getWorkoutPlansByProfile } from '../../data/workoutPlans';
 import { cn } from '@utils/cn';
+import { getDayOfWeek } from '../../utils/dates';
 
 interface PlanningPageProps {
   profileId: ProfileId;
@@ -42,7 +43,7 @@ const JS_DAY_TO_KEY: Record<number, string> = {
 };
 
 function getTodayKey(): string {
-  return JS_DAY_TO_KEY[new Date().getDay()];
+  return JS_DAY_TO_KEY[getDayOfWeek()];
 }
 
 function dayIndex(key: string): number {

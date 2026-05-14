@@ -5,6 +5,8 @@ import type {
   BodyLog,
   WeeklyCheckin,
   LeaderboardScore,
+  SleepLog,
+  WeeklyDuelResult,
   ExportData,
   ProfileId,
 } from '../types';
@@ -258,20 +260,95 @@ export const leaderboardScoreRepo = {
   },
 };
 
+// ========== SLEEP LOG REPOSITORY ==========
+
+export const sleepLogRepo = {
+  async create(log: Omit<SleepLog, 'id'>): Promise<SleepLog> {
+    const newLog: SleepLog = { ...log, id: generateId() };
+    return add(STORES.SLEEP_LOGS, newLog);
+  },
+
+  async update(log: SleepLog): Promise<SleepLog> {
+    return put(STORES.SLEEP_LOGS, log);
+  },
+
+  async getById(id: string): Promise<SleepLog | undefined> {
+    return get(STORES.SLEEP_LOGS, id);
+  },
+
+  async getAll(): Promise<SleepLog[]> {
+    return getAll(STORES.SLEEP_LOGS);
+  },
+
+  async getByProfile(profileId: ProfileId): Promise<SleepLog[]> {
+    return getByIndex(STORES.SLEEP_LOGS, 'profileId', profileId);
+  },
+
+  async getByDate(profileId: ProfileId, date: string): Promise<SleepLog | undefined> {
+    const logs = await getByIndex<SleepLog>(STORES.SLEEP_LOGS, 'profileId', profileId);
+    return logs.find((l) => l.date === date);
+  },
+
+  async getByDateRange(profileId: ProfileId, startDate: string, endDate: string): Promise<SleepLog[]> {
+    const logs = await getByIndex<SleepLog>(STORES.SLEEP_LOGS, 'profileId', profileId);
+    return logs.filter((l) => l.date >= startDate && l.date <= endDate);
+  },
+
+  async delete(id: string): Promise<void> {
+    return remove(STORES.SLEEP_LOGS, id);
+  },
+};
+
+// ========== WEEKLY DUEL RESULT REPOSITORY ==========
+
+export const weeklyDuelResultRepo = {
+  async getAll(): Promise<WeeklyDuelResult[]> {
+    return getAll<WeeklyDuelResult>(STORES.WEEKLY_DUEL_RESULTS);
+  },
+
+  async getByWeekStart(weekStart: string): Promise<WeeklyDuelResult | undefined> {
+    const all = await getAll<WeeklyDuelResult>(STORES.WEEKLY_DUEL_RESULTS);
+    return all.find((r) => r.weekStart === weekStart);
+  },
+
+  async upsert(result: Omit<WeeklyDuelResult, 'id'> & { id?: string }): Promise<WeeklyDuelResult> {
+    const existing = await this.getByWeekStart(result.weekStart);
+    if (existing) {
+      const updated: WeeklyDuelResult = { ...existing, ...result, id: existing.id };
+      return put<WeeklyDuelResult>(STORES.WEEKLY_DUEL_RESULTS, updated);
+    }
+    const newResult: WeeklyDuelResult = { ...result, id: result.id ?? generateId() };
+    return add<WeeklyDuelResult>(STORES.WEEKLY_DUEL_RESULTS, newResult);
+  },
+
+  async getWinsByProfile(profileId: ProfileId): Promise<number> {
+    const all = await getAll<WeeklyDuelResult>(STORES.WEEKLY_DUEL_RESULTS);
+    return all.filter((r) => r.winnerProfileId === profileId).length;
+  },
+
+  async deleteAll(): Promise<void> {
+    const all = await getAll<WeeklyDuelResult>(STORES.WEEKLY_DUEL_RESULTS);
+    for (const r of all) {
+      await remove(STORES.WEEKLY_DUEL_RESULTS, r.id);
+    }
+  },
+};
+
 // ========== EXPORT / IMPORT ==========
 
 export async function exportAllData(): Promise<ExportData> {
-  const [workoutSessions, setLogs, nutritionLogs, bodyLogs, weeklyCheckins, leaderboardScores] = await Promise.all([
+  const [workoutSessions, setLogs, nutritionLogs, bodyLogs, weeklyCheckins, leaderboardScores, weeklyDuelResults] = await Promise.all([
     workoutSessionRepo.getAll(),
     setLogRepo.getAll(),
     nutritionLogRepo.getAll(),
     bodyLogRepo.getAll(),
     weeklyCheckinRepo.getAll(),
     leaderboardScoreRepo.getAll(),
+    weeklyDuelResultRepo.getAll(),
   ]);
 
   return {
-    version: 1,
+    version: 2,
     exportedAt: new Date().toISOString(),
     profiles,
     workoutSessions,
@@ -280,6 +357,7 @@ export async function exportAllData(): Promise<ExportData> {
     bodyLogs,
     weeklyCheckins,
     leaderboardScores,
+    weeklyDuelResults,
     settings: getSettings(),
   };
 }

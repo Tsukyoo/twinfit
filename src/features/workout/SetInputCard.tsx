@@ -5,6 +5,7 @@ import { Check, Minus, Plus, AlertCircle, TrendingUp, Shield, AlertTriangle } fr
 import type { ActiveSetInput } from '../../hooks/useActiveWorkout';
 import type { ExerciseCategory, TrackingType } from '../../types';
 import type { RecommendationAction, ConfidenceLevel } from '../../logic/progressiveOverload';
+import type { SetPerformance } from '../../hooks/useLastSetPerformance';
 
 // Categories where weight = 0 is valid (bodyweight / cardio / core time-based)
 const BODYWEIGHT_CATEGORIES: ExerciseCategory[] = ['core', 'cardio'];
@@ -29,6 +30,8 @@ interface SetInputCardProps {
     confidence: ConfidenceLevel;
     lastPerformance?: string;
   } | null;
+  /** Last performance for THIS specific set position (matched by setIndex) */
+  lastSetPerf?: SetPerformance | null;
 }
 
 export function SetInputCard({
@@ -44,6 +47,7 @@ export function SetInputCard({
   onChange,
   onValidate,
   recommendation,
+  lastSetPerf,
 }: SetInputCardProps) {
   const isBodyweight = BODYWEIGHT_CATEGORIES.includes(exerciseCategory);
   const weightMinimum = isBodyweight ? 0 : 1;
@@ -158,7 +162,7 @@ export function SetInputCard({
               min={weightMinimum}
               step={2.5}
               value={input.weightKg ?? ''}
-              placeholder={isBodyweight ? '0' : '—'}
+              placeholder={lastSetPerf && !isBodyweight ? String(lastSetPerf.weightKg) : isBodyweight ? '0' : '—'}
               onChange={(e) => {
                 const val = e.target.value;
                 onChange({ weightKg: val === '' ? null : parseFloat(val) });
@@ -185,7 +189,7 @@ export function SetInputCard({
               min={1}
               step={1}
               value={input.reps ?? ''}
-              placeholder={String(maxReps)}
+              placeholder={lastSetPerf ? String(lastSetPerf.reps) : String(maxReps)}
               onChange={(e) => {
                 const val = e.target.value;
                 onChange({ reps: val === '' ? null : parseInt(val, 10) });
@@ -196,6 +200,13 @@ export function SetInputCard({
           </div>
         </div>
       </div>
+
+      {/* Last performance hint */}
+      {lastSetPerf && (
+        <p className="text-[11px] text-text-muted text-center mt-1.5 mb-0.5">
+          Dernière fois : {lastSetPerf.label}
+        </p>
+      )}
 
       {/* Weight error message */}
       {weightError && (

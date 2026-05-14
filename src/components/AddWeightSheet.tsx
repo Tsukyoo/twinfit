@@ -4,7 +4,6 @@ import { cn } from '@utils/cn';
 
 export interface WeightInitialData {
   weightKg: number;
-  waistCm?: number;
   notes?: string;
 }
 
@@ -13,6 +12,8 @@ interface AddWeightSheetProps {
   gradient: string;
   mode?: 'create' | 'edit';
   initialData?: WeightInitialData;
+  /** Suggested weight to show as placeholder (last weigh-in or initial weight) */
+  suggestedWeightKg?: number | null;
   onSave: (weightKg: number, waistCm?: number, notes?: string) => Promise<void>;
   onClose: () => void;
 }
@@ -22,23 +23,21 @@ export function AddWeightSheet({
   gradient,
   mode = 'create',
   initialData,
+  suggestedWeightKg,
   onSave,
   onClose,
 }: AddWeightSheetProps) {
   const [weight, setWeight] = useState<string>(
-    initialData ? String(initialData.weightKg) : (lastWeightKg ? String(lastWeightKg) : '')
+    initialData ? String(initialData.weightKg) : ''
   );
-  const [waist, setWaist]   = useState<string>(initialData?.waistCm ? String(initialData.waistCm) : '');
   const [notes, setNotes]   = useState<string>(initialData?.notes ?? '');
   const [saving, setSaving] = useState(false);
   const [error, setError]   = useState<string>('');
 
   useEffect(() => {
     document.body.style.overflow = 'hidden';
-    document.body.classList.add('sheet-open');
     return () => {
       document.body.style.overflow = '';
-      document.body.classList.remove('sheet-open');
     };
   }, []);
 
@@ -48,15 +47,10 @@ export function AddWeightSheet({
       setError('Poids invalide (20–300 kg)');
       return;
     }
-    const waistNum = waist ? parseFloat(waist) : undefined;
-    if (waist && (isNaN(waistNum!) || waistNum! < 40 || waistNum! > 200)) {
-      setError('Tour de taille invalide (40–200 cm)');
-      return;
-    }
     setSaving(true);
     setError('');
     try {
-      await onSave(kg, waistNum, notes || undefined);
+      await onSave(kg, undefined, notes || undefined);
       onClose();
     } finally {
       setSaving(false);
@@ -68,21 +62,23 @@ export function AddWeightSheet({
     setWeight(+(cur + dir * 0.1).toFixed(1) + '');
   };
 
+  const bottomNavSpace = 'calc(80px + env(safe-area-inset-bottom, 0px))';
+
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
+    <div className="fixed inset-0 z-[48] flex items-end justify-center">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
 
-      <div className="relative w-full max-w-[480px] bg-background rounded-t-[28px] shadow-apple-lg flex flex-col" style={{ maxHeight: '82dvh' }}>
+      <div
+        className="relative w-full max-w-[480px] bg-background rounded-t-[28px] shadow-apple-lg flex flex-col overflow-hidden"
+        style={{ marginBottom: bottomNavSpace }}
+      >
         {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
+        <div className="flex justify-center pt-3 pb-1 flex-shrink-0">
           <div className="w-10 h-1 rounded-full bg-text-muted/30" />
         </div>
 
         {/* Header */}
-        <div className="flex items-center justify-between px-5 pt-2 pb-4">
+        <div className="flex items-center justify-between px-5 pt-2 pb-4 flex-shrink-0">
           <h2 className="text-xl font-bold text-text-main">
             {mode === 'edit' ? 'Modifier la pesée' : 'Ajouter une pesée'}
           </h2>
@@ -94,7 +90,8 @@ export function AddWeightSheet({
           </button>
         </div>
 
-        <div className="px-5 pb-3 space-y-4 overflow-y-auto flex-1 no-scrollbar">
+        {/* Content — not flex-1, just natural height */}
+        <div className="px-5 pb-2 space-y-5">
           {/* Weight — big stepper */}
           <div>
             <label className="block text-sm font-semibold text-text-main mb-2">
@@ -114,7 +111,7 @@ export function AddWeightSheet({
                 min={20}
                 max={300}
                 value={weight}
-                placeholder="75.0"
+                placeholder={suggestedWeightKg ? String(suggestedWeightKg) : (lastWeightKg ? String(lastWeightKg) : '75.0')}
                 onChange={(e) => setWeight(e.target.value)}
                 className="flex-1 text-center text-3xl font-bold text-text-main bg-surface-muted rounded-2xl h-14 focus:outline-none focus:ring-2"
               />
@@ -129,23 +126,6 @@ export function AddWeightSheet({
                 +
               </button>
             </div>
-          </div>
-
-          {/* Waist — optional */}
-          <div>
-            <label className="block text-sm font-medium text-text-main mb-2">
-              Tour de taille (cm) <span className="text-text-muted text-xs">optionnel</span>
-            </label>
-            <input
-              type="number"
-              step="0.5"
-              min={40}
-              max={200}
-              value={waist}
-              placeholder="80"
-              onChange={(e) => setWaist(e.target.value)}
-              className="w-full text-center text-lg font-semibold text-text-main bg-surface-muted rounded-2xl h-11 focus:outline-none focus:ring-2"
-            />
           </div>
 
           {/* Notes — optional */}
@@ -170,10 +150,7 @@ export function AddWeightSheet({
         </div>
 
         {/* Save button — always visible at bottom */}
-        <div
-          className="px-5 pt-3 flex-shrink-0 bg-background border-t border-black/5"
-          style={{ paddingBottom: 'calc(env(safe-area-inset-bottom, 0px) + 20px)' }}
-        >
+        <div className="px-5 pt-4 pb-5 flex-shrink-0 bg-background border-t border-black/5 mt-4">
           <button
             onClick={handleSave}
             disabled={!weight || saving}

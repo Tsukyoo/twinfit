@@ -1,10 +1,10 @@
-import { useState } from 'react';
+import React from 'react';
 import { Layout } from '../../app/layout';
 import { AppleCard } from '@components/AppleCard';
 import {
-  User, Bell, Download, RotateCcw, Info,
+  User, Bell, Info,
   LogOut, Dumbbell, Scale, UtensilsCrossed,
-  AlertTriangle, X, Check, Zap, Sparkles,
+  Zap, Sparkles,
 } from 'lucide-react';
 import type { ProfileId } from '../../types';
 import { useSettingsData } from '../../hooks/useSettingsData';
@@ -26,31 +26,7 @@ export function SettingsPage({ profileId, onChangeProfile }: SettingsPageProps) 
   const {
     settings, profileName, stats, isLoadingStats,
     toggleTimerSound, toggleReducedMotion,
-    exportData, resetData,
   } = useSettingsData(profileId);
-
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [isExporting, setIsExporting] = useState(false);
-  const [isResetting, setIsResetting] = useState(false);
-  const [resetDone, setResetDone] = useState(false);
-
-  const handleExport = async () => {
-    setIsExporting(true);
-    try { await exportData(); }
-    finally { setIsExporting(false); }
-  };
-
-  const handleReset = async () => {
-    setIsResetting(true);
-    try {
-      await resetData();
-      setResetDone(true);
-      setTimeout(() => setResetDone(false), 2000);
-    } finally {
-      setIsResetting(false);
-      setShowResetConfirm(false);
-    }
-  };
 
   return (
     <Layout profileId={profileId} onChangeProfile={onChangeProfile}>
@@ -135,64 +111,18 @@ export function SettingsPage({ profileId, onChangeProfile }: SettingsPageProps) 
         </div>
       </button>
 
-      {/* ===== Données ===== */}
-      <SectionTitle>Données</SectionTitle>
-      <div className="space-y-3">
-        {/* Export */}
-        <AppleCard interactive onClick={handleExport} className="p-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-ios-blue/10 flex items-center justify-center flex-shrink-0">
-              <Download className="w-5 h-5 text-ios-blue" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-text-main">Exporter les données</p>
-              <p className="text-xs text-text-secondary">Télécharger un fichier JSON</p>
-            </div>
-            {isExporting
-              ? <span className="text-xs text-text-muted animate-pulse">Export…</span>
-              : <Check className="w-4 h-4 text-ios-blue opacity-0" />}
-          </div>
-        </AppleCard>
-
-        {/* Reset destructif */}
-        <AppleCard
-          interactive
-          onClick={() => setShowResetConfirm(true)}
-          className="p-4"
-        >
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-ios-red/10 flex items-center justify-center flex-shrink-0">
-              <RotateCcw className="w-5 h-5 text-ios-red" />
-            </div>
-            <div className="flex-1">
-              <p className="font-medium text-ios-red">Réinitialiser les données</p>
-              <p className="text-xs text-text-secondary">Supprime tout et réinitialise</p>
-            </div>
-            {resetDone && <Check className="w-4 h-4 text-ios-green" />}
-          </div>
-        </AppleCard>
-      </div>
-
       {/* ===== À propos ===== */}
       <SectionTitle>Application</SectionTitle>
       <AppleCard className="overflow-hidden divide-y divide-black/5">
-        <InfoRow icon={<Info className="w-5 h-5 text-text-muted" />} label="Version" value="0.1.0" />
-        <InfoRow icon={<User className="w-5 h-5 text-text-muted" />} label="Build" value="Basic Fit Edition" />
+        <InfoRow icon={<Info className="w-5 h-5 text-text-muted" />} label="Version" value="1.2.0" />
+        <InfoRow icon={<User className="w-5 h-5 text-text-muted" />} label="Salle" value="Basic Fit Edition" />
       </AppleCard>
 
       {/* Footer */}
       <p className="text-center text-xs text-text-muted pb-2">
-        TwinFit · Données stockées localement sur cet appareil
+        TwinFit · Données stockées dans ta daronne denizhan.
       </p>
 
-      {/* ===== Reset confirmation modal ===== */}
-      {showResetConfirm && (
-        <ResetConfirmModal
-          isResetting={isResetting}
-          onConfirm={handleReset}
-          onCancel={() => setShowResetConfirm(false)}
-        />
-      )}
     </Layout>
   );
 }
@@ -280,73 +210,3 @@ function InfoRow({ icon, label, value }: InfoRowProps) {
   );
 }
 
-interface ResetConfirmModalProps {
-  isResetting: boolean;
-  onConfirm: () => void;
-  onCancel: () => void;
-}
-
-function ResetConfirmModal({ isResetting, onConfirm, onCancel }: ResetConfirmModalProps) {
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center"
-      onClick={(e) => { if (e.target === e.currentTarget) onCancel(); }}
-    >
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onCancel} />
-      <div className="relative w-full max-w-[480px] bg-background rounded-t-[28px] shadow-apple-lg overflow-hidden">
-        {/* Handle */}
-        <div className="flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 rounded-full bg-text-muted/30" />
-        </div>
-
-        <div className="px-6 py-5">
-          {/* Icon */}
-          <div className="w-14 h-14 rounded-2xl bg-ios-red/10 flex items-center justify-center mx-auto mb-4">
-            <AlertTriangle className="w-7 h-7 text-ios-red" />
-          </div>
-
-          {/* Text */}
-          <h3 className="text-xl font-bold text-text-main text-center mb-2">
-            Réinitialiser toutes les données ?
-          </h3>
-          <p className="text-sm text-text-secondary text-center mb-6">
-            Toutes tes séances, pesées, repas et scores seront <span className="font-semibold text-ios-red">définitivement supprimés</span>.
-            Cette action est irréversible.
-          </p>
-
-          {/* Buttons */}
-          <div className="space-y-3">
-            <button
-              onClick={onConfirm}
-              disabled={isResetting}
-              className={cn(
-                'w-full py-4 rounded-2xl text-sm font-bold text-white bg-ios-red flex items-center justify-center gap-2 transition-opacity',
-                isResetting && 'opacity-50'
-              )}
-            >
-              {isResetting ? (
-                <span className="animate-pulse">Réinitialisation…</span>
-              ) : (
-                <>
-                  <RotateCcw className="w-4 h-4" />
-                  Oui, tout supprimer
-                </>
-              )}
-            </button>
-            <button
-              onClick={onCancel}
-              disabled={isResetting}
-              className="w-full py-4 rounded-2xl text-sm font-semibold text-text-main bg-surface-muted flex items-center justify-center gap-2"
-            >
-              <X className="w-4 h-4" />
-              Annuler
-            </button>
-          </div>
-
-          {/* Safe zone spacer */}
-          <div className="h-4" />
-        </div>
-      </div>
-    </div>
-  );
-}

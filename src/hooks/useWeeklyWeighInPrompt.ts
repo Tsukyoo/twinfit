@@ -1,13 +1,14 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ProfileId } from '../types';
 import { bodyLogRepo } from '../db/repositories';
+import { getLocalDateISO, getDayOfWeek } from '../utils/dates';
 
 function todayDateStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return getLocalDateISO();
 }
 
 function isSunday(): boolean {
-  return new Date().getDay() === 0;
+  return getDayOfWeek() === 0;
 }
 
 function dismissKey(profileId: ProfileId, date: string): string {

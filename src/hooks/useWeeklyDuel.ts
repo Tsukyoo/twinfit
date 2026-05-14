@@ -1,8 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
-import type { WorkoutSession, SetLog, NutritionLog, BodyLog, WeeklyCheckin } from '../types';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import type { WorkoutSession, SetLog, NutritionLog, BodyLog, WeeklyCheckin, SleepLog } from '../types';
 import { getProfileById } from '../data/profiles';
-import { workoutSessionRepo, setLogRepo, nutritionLogRepo, bodyLogRepo, weeklyCheckinRepo } from '../db/repositories';
+import { workoutSessionRepo, setLogRepo, nutritionLogRepo, bodyLogRepo, weeklyCheckinRepo, sleepLogRepo } from '../db/repositories';
 import { computeWeeklyDuel, getWeekStart, getWeekEnd, type DuelResult } from '../logic/weeklyDuelScoring';
+import { pushDuelPoints } from '../services/duelSyncService';
 
 export interface WeeklyDuelState {
   result: DuelResult | null;
@@ -26,6 +27,8 @@ export function useWeeklyDuel(weekStart?: string): WeeklyDuelState {
     denizhanBody: BodyLog[];
     teomanCheckin?: WeeklyCheckin;
     denizhanCheckin?: WeeklyCheckin;
+    teomanSleep: SleepLog[];
+    denizhanSleep: SleepLog[];
   } | null>(null);
 
   useEffect(() => {
@@ -43,6 +46,7 @@ export function useWeeklyDuel(weekStart?: string): WeeklyDuelState {
         tNutrition, dNutrition,
         tBody, dBody,
         tCheckin, dCheckin,
+        tSleep, dSleep,
       ] = await Promise.all([
         workoutSessionRepo.getByProfile('teoman'),
         workoutSessionRepo.getByProfile('denizhan'),
@@ -56,6 +60,8 @@ export function useWeeklyDuel(weekStart?: string): WeeklyDuelState {
         bodyLogRepo.getByProfile('denizhan'),
         weeklyCheckinRepo.getByWeek('teoman', targetWeek).catch(() => undefined),
         weeklyCheckinRepo.getByWeek('denizhan', targetWeek).catch(() => undefined),
+        sleepLogRepo.getByDateRange('teoman', targetWeek, weekEnd).catch(() => [] as SleepLog[]),
+        sleepLogRepo.getByDateRange('denizhan', targetWeek, weekEnd).catch(() => [] as SleepLog[]),
       ]);
 
       if (!cancelled) {
@@ -72,6 +78,8 @@ export function useWeeklyDuel(weekStart?: string): WeeklyDuelState {
           denizhanBody: dBody,
           teomanCheckin: tCheckin,
           denizhanCheckin: dCheckin,
+          teomanSleep: tSleep,
+          denizhanSleep: dSleep,
         });
         setIsLoading(false);
       }
@@ -111,8 +119,29 @@ export function useWeeklyDuel(weekStart?: string): WeeklyDuelState {
       denizhanCheckin: rawData.denizhanCheckin,
       teomanPrevBodyLog: tPrevBody,
       denizhanPrevBodyLog: dPrevBody,
+      teomanSleepLogs: rawData.teomanSleep,
+      denizhanSleepLogs: rawData.denizhanSleep,
     });
   }, [rawData, targetWeek]);
+
+  // ── Debounced Supabase sync ───────────────────────────────
+  // Fire 1.5 s after the result stabilises to avoid pushing on every keystroke.
+  const syncTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!result || isLoading) return;
+
+    if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+
+    syncTimerRef.current = setTimeout(() => {
+      pushDuelPoints('teoman',   targetWeek, result.teoman.total).catch(() => {});
+      pushDuelPoints('denizhan', targetWeek, result.denizhan.total).catch(() => {});
+    }, 1500);
+
+    return () => {
+      if (syncTimerRef.current) clearTimeout(syncTimerRef.current);
+    };
+  }, [result, isLoading, targetWeek]);
 
   return { result, isLoading, weekStart: targetWeek };
 }

@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { BodyLog, ProfileId } from '../types';
 import { bodyLogRepo } from '../db/repositories';
 import { getProfileById } from '../data/profiles';
+import { getLocalDateISO, getDaysAgoISO } from '../utils/dates';
 
 export interface ProgressData {
   logs: BodyLog[];          // all logs sorted ascending (for chart)
@@ -17,13 +18,11 @@ export interface ProgressData {
 }
 
 function todayDateStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return getLocalDateISO();
 }
 
 function last30DaysStart(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 29);
-  return d.toISOString().split('T')[0];
+  return getDaysAgoISO(29);
 }
 
 export function useProgressData(profileId: ProfileId): ProgressData {

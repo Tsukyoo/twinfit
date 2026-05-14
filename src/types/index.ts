@@ -14,6 +14,8 @@ export type ExerciseCategory =
   | 'full_body';
 
 export type WorkoutStatus = 'active' | 'completed' | 'cancelled';
+export type BonusWorkoutType = 'rest_day' | 'extra_volume' | 'cardio' | 'custom';
+export type SleepQuality = 'poor' | 'average' | 'good' | 'excellent';
 
 // Profile
 export interface Profile {
@@ -93,6 +95,11 @@ export interface WorkoutSession {
   totalVolumeKg?: number;
   totalSets?: number;
   pointsEarned?: number;
+  // Bonus workout fields
+  isBonusWorkout?: boolean;
+  sourcePlanId?: string;
+  bonusType?: BonusWorkoutType;
+  scheduledDay?: string;
 }
 
 // Set Log (user data - stored in IndexedDB)
@@ -192,6 +199,33 @@ export interface AppSettings {
   units: 'metric';
 }
 
+// Sleep Log (user data - stored in IndexedDB)
+export interface SleepLog {
+  id: string;
+  profileId: ProfileId;
+  date: string;          // YYYY-MM-DD (night starting this date)
+  hours: number;
+  minutes: number;
+  totalMinutes: number;  // hours*60 + minutes
+  quality: SleepQuality;
+  bedtime?: string;      // HH:MM
+  wakeTime?: string;     // HH:MM
+  note?: string;
+  createdAt: string;
+}
+
+// Weekly Duel Result (stored in IndexedDB)
+export interface WeeklyDuelResult {
+  id: string;
+  weekStart: string;           // YYYY-MM-DD (Monday)
+  weekEnd: string;             // YYYY-MM-DD (Sunday)
+  winnerProfileId: ProfileId | null;  // null = tie / no data
+  teomanPoints: number;
+  denizhanPoints: number;
+  reason: string;              // human-readable: "tiebreaker: séances", "0/0 pas de données", etc.
+  createdAt: string;
+}
+
 // Export/Import
 export interface ExportData {
   version: number;
@@ -203,5 +237,6 @@ export interface ExportData {
   bodyLogs: BodyLog[];
   weeklyCheckins: WeeklyCheckin[];
   leaderboardScores: LeaderboardScore[];
+  weeklyDuelResults: WeeklyDuelResult[];
   settings: AppSettings;
 }

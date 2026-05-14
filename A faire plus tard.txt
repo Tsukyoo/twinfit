@@ -1,1 +1,941 @@
-- Lancer l'application et l'heberger sur github (Pouvoir le lancer a n'importe quelle moment sur telephone via lien.)
+---------------------------------------------------
+1. Coach Decision Engine
+Objectif
+
+Créer le cerveau central de TwinFit.
+
+Problème résolu
+
+Aujourd’hui, les données sont dispersées : sommeil, poids, nutrition, séances, PR, duel. Il faut un moteur unique qui transforme tout ça en décision quotidienne.
+
+Fonctionnement détaillé
+
+Chaque matin, TwinFit calcule un “Daily Decision”.
+
+Inputs :
+
+sommeil d’hier ;
+nutrition d’hier ;
+eau ;
+poids récent ;
+séance prévue ;
+fatigue musculaire ;
+performance des dernières séances ;
+progression ou stagnation ;
+objectif du profil ;
+historique duel.
+
+Sortie :
+
+“Pousser fort aujourd’hui”
+“Séance normale”
+“Séance technique”
+“Repos conseillé”
+“Ajouter calories”
+“Baisser calories”
+“Priorité sommeil”
+“Risque de stagnation”
+“Bonne journée pour PR”
+
+Exemple :
+
+“Sommeil bon, nutrition respectée, dernière séance réussie : aujourd’hui tu peux tenter +2,5kg sur le rowing.”
+
+Cas spécial :
+Si sommeil bas + force en baisse :
+
+“Ne cherche pas un PR aujourd’hui. Garde la charge et valide propre.”
+
+Impact psychologique
+
+L’utilisateur n’a plus à réfléchir. L’app devient un coach qui décide.
+
+Impact business
+
+Très forte rétention : l’utilisateur ouvre l’app pour savoir quoi faire.
+
+Niveau difficulté technique
+
+Complexe.
+
+Priorité
+
+
+---------------------------------------------------
+2. Anti-Stagnation Engine
+Objectif
+
+Empêcher la stagnation réelle.
+
+Problème résolu
+
+Les gens arrêtent quand ils ont l’impression de ne plus progresser.
+
+Fonctionnement détaillé
+
+Le moteur surveille chaque exercice.
+
+Détection :
+
+même poids depuis 3 séances ;
+reps bloquées ;
+RPE haut ;
+volume qui baisse ;
+sommeil bas ;
+nutrition incomplète ;
+poids corporel incohérent avec objectif.
+
+Réactions possibles :
+
+“Garde charge, vise +1 rep”
+“Monte charge”
+“Deload 1 séance”
+“Change exercice temporairement”
+“Augmente repos”
+“Ajoute calories”
+“Réduis volume épaules cette semaine”
+
+Exemple :
+Développé incliné :
+
+3 séances à 22kg bloqué à 8 reps.
+sommeil moyen 5h50.
+calories basses.
+
+TwinFit répond :
+
+“Ce n’est pas un problème de force. C’est probablement récupération + énergie. Garde 22kg, dors mieux, ajoute 150 kcal pendant 3 jours.”
+
+Impact psychologique
+
+L’utilisateur comprend pourquoi il bloque. Il ne se décourage pas.
+
+Impact business
+
+Différenciation énorme : peu d’apps expliquent la stagnation correctement.
+
+
+---------------------------------------------------
+3. Progressive Overload Autopilot
+Objectif
+
+Faire progresser l’utilisateur sans qu’il pense à la prochaine charge.
+
+Problème résolu
+
+La plupart des débutants/intermédiaires ne savent pas quand monter.
+
+Fonctionnement détaillé
+
+Pour chaque série, TwinFit garde :
+
+poids ;
+reps ;
+RPE ;
+douleur ;
+qualité ;
+temps de repos ;
+série concernée.
+
+À la séance suivante :
+
+placeholder = dernière perf de cette série ;
+recommandation = objectif précis.
+
+Exemple :
+Dernière fois :
+
+S1 35kg x 12
+S2 35kg x 12
+S3 25kg x 12
+S4 20kg x 12
+
+Aujourd’hui :
+
+S1 cible 37,5kg x 8-10
+S2 cible 37,5kg x 8-10
+S3 cible 27,5kg x 10-12
+S4 cible 22,5kg x 10-12
+
+Si RPE absent mais reps hautes validées :
+
+montée légère recommandée avec confiance moyenne.
+Impact psychologique
+
+L’utilisateur voit immédiatement “je bats mon ancien moi”.
+
+Impact business
+
+L’app devient utile pendant la séance, pas seulement après.
+
+
+---------------------------------------------------
+4. Recovery Readiness Score
+Objectif
+
+Savoir si aujourd’hui est un jour pour pousser ou gérer.
+
+Problème résolu
+
+Les utilisateurs forcent quand ils devraient récupérer, ou se sous-entraînent quand ils peuvent progresser.
+
+Fonctionnement détaillé
+
+Score 0-100 basé sur :
+
+sommeil ;
+énergie ;
+courbatures ;
+nutrition ;
+eau ;
+dernière séance ;
+performance récente ;
+fréquence d’entraînement.
+
+Sorties :
+
+85-100 : “Push day”
+65-84 : “Normal”
+45-64 : “Technique”
+<45 : “Récupération prioritaire”
+
+Exemple :
+
+“Récupération 42. Ne force pas les jambes. Fais la séance mais garde 2 reps en réserve.”
+
+Impact psychologique
+
+L’utilisateur se sent compris.
+
+Impact business
+
+Augmente la confiance dans l’app.
+
+
+---------------------------------------------------
+5. Fatigue Musculaire Dynamique
+Objectif
+
+Savoir quels muscles sont prêts et lesquels sont encore fatigués.
+
+Problème résolu
+
+Un programme fixe ne comprend pas la récupération réelle.
+
+Fonctionnement détaillé
+
+Chaque exercice ajoute de la fatigue aux muscles :
+
+pecs ;
+épaules ;
+dos ;
+bras ;
+jambes ;
+abdos.
+
+Facteurs :
+
+volume ;
+intensité ;
+RPE ;
+sommeil ;
+temps depuis dernière séance ;
+douleur.
+
+Exemple :
+Après grosse séance épaules :
+
+“Épaules encore à 72% de fatigue. Évite bonus épaules aujourd’hui.”
+
+UI :
+
+carte corps humain ;
+muscles colorés ;
+“Prêt / Fatigué / Attention”.
+Impact psychologique
+
+Très visuel, très premium.
+
+Impact business
+
+Grosse différenciation.
+
+
+---------------------------------------------------
+6. Duel Intelligent, pas juste points
+Objectif
+
+Faire du duel une tension hebdomadaire réelle.
+
+Problème résolu
+
+Un classement simple devient vite vide.
+
+Fonctionnement détaillé
+
+Chaque semaine :
+
+score total ;
+score discipline ;
+score progression ;
+score nutrition ;
+score récupération ;
+score régularité.
+
+Mais surtout :
+TwinFit explique pourquoi quelqu’un gagne.
+
+Exemple :
+
+“Teoman mène grâce à sa régularité nutrition, mais Denizhan progresse plus vite en force.”
+
+Ajouter :
+
+“Rival pressure”
+“Il te manque 38 points pour repasser devant”
+“Une séance complète + eau validée suffit pour gagner”
+
+Fin de semaine :
+
+gagnant ;
+raison principale ;
+faiblesse du perdant ;
+défi semaine suivante.
+Impact psychologique
+
+Crée tension + motivation directe.
+
+Impact business
+
+Très fort pour rétention duo.
+
+
+---------------------------------------------------
+7. Weekly Coach Review
+Objectif
+
+Créer un rendez-vous fort chaque dimanche.
+
+Problème résolu
+
+Sans bilan, l’utilisateur ne comprend pas sa semaine.
+
+Fonctionnement détaillé
+
+Chaque dimanche :
+TwinFit génère un rapport :
+
+poids moyen ;
+calories moyennes ;
+protéines ;
+eau ;
+sommeil ;
+séances ;
+PR ;
+points duel ;
+fatigue ;
+meilleur exercice ;
+pire point ;
+décision semaine suivante.
+
+Exemple :
+
+“Bonne semaine. Tu as progressé sur 4 exercices, mais ton sommeil bloque la récupération. Objectif semaine prochaine : 7h minimum 4 jours.”
+
+Impact psychologique
+
+L’utilisateur a une impression de coaching premium.
+
+Impact business
+
+Crée une habitude hebdomadaire.
+
+
+---------------------------------------------------
+8. Adaptive Calories Engine
+Objectif
+
+Ajuster calories/protéines/eau selon la vraie progression.
+
+Problème résolu
+
+Les calories fixes deviennent fausses avec le temps.
+
+Fonctionnement détaillé
+
+Analyse :
+
+moyenne poids 7 jours ;
+variation 14 jours ;
+compliance calories ;
+entraînement ;
+sommeil ;
+objectif profil.
+
+Teoman :
+
+perte parfaite : garder ;
+perte trop rapide : +100/200 kcal ;
+stagnation : -100/150 kcal ou cardio ;
+force chute : remonter calories.
+
+Denizhan :
+
+pas de prise : +150/200 kcal ;
+prise trop rapide : -100/150 kcal ;
+force monte + poids lent : garder.
+
+Le système donne :
+
+cible actuelle ;
+cible recommandée ;
+raison ;
+confiance.
+Impact psychologique
+
+L’utilisateur n’a plus peur de “mal manger”.
+
+Impact business
+
+Transformation plus visible = meilleure rétention.
+
+
+---------------------------------------------------
+9. Compliance Truth Score
+Objectif
+
+Mesurer si l’utilisateur suit vraiment le plan.
+
+Problème résolu
+
+Les utilisateurs disent “ça marche pas”, mais ne respectent pas assez.
+
+Fonctionnement détaillé
+
+Score de vérité :
+
+nutrition remplie ;
+calories proches cible ;
+protéines ;
+eau ;
+sommeil ;
+séances ;
+pesées.
+
+Si score faible :
+TwinFit refuse de faire des ajustements agressifs.
+
+Exemple :
+
+“Données insuffisantes. Tu as loggé 2 repas sur 7 jours. Impossible d’ajuster précisément.”
+
+Impact psychologique
+
+Responsabilise sans juger.
+
+Impact business
+
+Réduit frustration et faux échecs.
+
+
+---------------------------------------------------
+10. Momentum Engine
+Objectif
+
+Transformer la discipline en énergie visible.
+
+Problème résolu
+
+Les streaks simples sont trop fragiles et enfantins.
+
+Fonctionnement détaillé
+
+Momentum = score de rythme basé sur :
+
+séances récentes ;
+nutrition ;
+sommeil ;
+eau ;
+pesées ;
+duel.
+
+Pas juste “jours consécutifs”.
+Si tu rates un jour, tu ne perds pas tout, mais tu perds du momentum.
+
+États :
+
+Cold
+Building
+Locked In
+Dangerous
+Peak Week
+
+Exemple :
+
+“Momentum 82 — tu es dans ta meilleure série depuis 3 semaines.”
+
+Impact psychologique
+
+L’utilisateur veut préserver son identité de personne disciplinée.
+
+Impact business
+
+Rétention quotidienne forte.
+
+
+---------------------------------------------------
+11. Smart Deload System
+Objectif
+
+Gérer automatiquement les semaines où il faut réduire.
+
+Problème résolu
+
+Les gens stagnent car ils ne savent pas quand récupérer.
+
+Fonctionnement détaillé
+
+Déclencheurs :
+
+RPE haut sur plusieurs exercices ;
+reps en baisse ;
+sommeil bas ;
+douleurs ;
+fatigue musculaire élevée ;
+motivation basse ;
+stagnation 2 semaines.
+
+Recommandation :
+
+réduire volume -30% ;
+garder mouvement ;
+pas de PR ;
+focus technique.
+
+Exemple :
+
+“Deload conseillé cette semaine. Tu reviendras plus fort.”
+
+Impact psychologique
+
+L’utilisateur arrête de voir le repos comme un échec.
+
+Impact business
+
+Améliore résultats long terme.
+
+
+---------------------------------------------------
+12. Exercise Replacement Intelligence
+Objectif
+
+Adapter l’exercice selon douleur, machine occupée ou stagnation.
+
+Problème résolu
+
+À la salle, la machine peut être prise ou l’exercice peut faire mal.
+
+Fonctionnement détaillé
+
+Chaque exercice a :
+
+alternatives ;
+muscles ciblés ;
+niveau fatigue ;
+équipement ;
+priorité.
+
+Cas :
+
+douleur épaule sur shoulder press → landmine press / machine plus stable ;
+machine prise → alternative poulie/haltère ;
+stagnation → variante temporaire.
+Impact psychologique
+
+L’utilisateur ne bloque jamais en salle.
+
+Impact business
+
+Rend l’app utile en situation réelle.
+
+
+---------------------------------------------------
+13. “Today’s Mission”
+Objectif
+
+Donner un objectif clair chaque jour.
+
+Problème résolu
+
+Trop de données = pas assez d’action.
+
+Fonctionnement détaillé
+
+Chaque jour, une mission principale :
+
+Exemples :
+
+“Valide 160g protéines”
+“Monte à 37,5kg au développé incliné”
+“Bois 3L”
+“Dors 7h”
+“Bats Denizhan de 50 points”
+“Ne rate pas ta pesée”
+
+La mission est choisie selon le plus gros levier du moment.
+
+Impact psychologique
+
+Réduit la friction. L’utilisateur sait quoi faire.
+
+Impact business
+
+Engagement quotidien.
+
+
+---------------------------------------------------
+14. Transformation Timeline
+Objectif
+
+Montrer l’histoire de progression.
+
+Problème résolu
+
+Les changements physiques sont lents. L’utilisateur oublie d’où il vient.
+
+Fonctionnement détaillé
+
+Timeline :
+
+poids ;
+photos ;
+PR ;
+semaines gagnées ;
+calories ;
+sommeil ;
+commentaires coach.
+
+Exemple :
+
+“Semaine 1 : 62kg”
+“Semaine 5 : +4kg au rowing”
+“Semaine 8 : meilleure régularité nutrition”
+
+Impact psychologique
+
+Renforce l’identité et la fierté.
+
+Impact business
+
+Très bon pour partage/viral.
+
+
+---------------------------------------------------
+15. Prediction Engine
+Objectif
+
+Montrer où l’utilisateur sera s’il continue.
+
+Problème résolu
+
+La motivation baisse quand le futur est flou.
+
+Fonctionnement détaillé
+
+TwinFit prédit :
+
+poids dans 4 semaines ;
+charge estimée dans 8 semaines ;
+probabilité d’atteindre objectif ;
+risque de stagnation.
+
+Exemple :
+
+“À ce rythme, Denizhan atteint 66kg dans 9 semaines.”
+
+Impact psychologique
+
+Le futur devient visible.
+
+Impact business
+
+Très addictif.
+
+
+---------------------------------------------------
+16. Coach Tone System
+Objectif
+
+Adapter le style du coach à la situation.
+
+Problème résolu
+
+Un coach qui parle toujours pareil devient invisible.
+
+Fonctionnement détaillé
+
+Tonalités :
+
+strict ;
+motivant ;
+analytique ;
+rival ;
+calme ;
+warning.
+
+Exemples :
+Si discipline basse :
+
+“Tu n’as pas assez de données. Pas d’excuse, remplis tes repas aujourd’hui.”
+
+Si progrès bon :
+
+“Très bon signal. Ne change rien.”
+
+Si fatigue :
+
+“Aujourd’hui, l’objectif c’est de ne pas te griller.”
+
+Impact psychologique
+
+L’app paraît vivante.
+
+Impact business
+
+Différenciation IA/coaching.
+
+
+---------------------------------------------------
+18. Session Quality Score
+Objectif
+
+Mesurer la qualité d’une séance, pas seulement sa complétion.
+
+Problème résolu
+
+Faire une séance n’est pas toujours bien s’entraîner.
+
+Fonctionnement détaillé
+
+Score basé sur :
+
+séries validées ;
+reps cible ;
+RPE ;
+progression ;
+repos respecté ;
+douleur ;
+durée séance ;
+fatigue.
+
+Exemple :
+
+“Séance 84/100 — bon volume, repos un peu court.”
+
+Impact psychologique
+
+L’utilisateur cherche à faire mieux, pas juste finir.
+
+Impact business
+
+Plus d’usage pendant séance.
+
+
+---------------------------------------------------
+19. Smart Rest Timer
+Objectif
+
+Adapter les temps de repos selon performance.
+
+Problème résolu
+
+Repos fixe = parfois trop court ou trop long.
+
+Fonctionnement détaillé
+
+Base = programme.
+Adaptation :
+
+RPE élevé → +30s ;
+reps chutent → +30s ;
+isolation facile → repos normal ;
+PR attempt → +60s.
+
+Exemple :
+
+“RPE 9 détecté. Repos conseillé : 2min30.”
+
+Impact psychologique
+
+L’app coach pendant la séance.
+
+Impact business
+
+Différenciation forte.
+
+
+---------------------------------------------------
+20. “What Changed?” Insight
+Objectif
+
+Expliquer pourquoi une performance monte ou baisse.
+
+Problème résolu
+
+L’utilisateur voit les chiffres mais ne comprend pas les causes.
+
+Fonctionnement détaillé
+
+Après une séance :
+TwinFit compare :
+
+sommeil ;
+calories ;
+poids ;
+reps ;
+charge ;
+repos ;
+ordre exercices.
+
+Exemple :
+
+“Tu as fait +2 reps sur le rowing. La différence probable : meilleur sommeil + calories respectées hier.”
+
+Impact psychologique
+
+L’utilisateur comprend les leviers.
+
+Impact business
+
+App perçue comme intelligente.
+
+
+---------------------------------------------------
+21. Risk Alerts
+Objectif
+
+Prévenir erreurs avant qu’elles coûtent cher.
+
+Problème résolu
+
+L’utilisateur découvre trop tard qu’il mange trop peu, dort mal ou force trop.
+
+Fonctionnement détaillé
+
+Alertes :
+
+perte trop rapide ;
+prise trop rapide ;
+sommeil bas 3 jours ;
+douleur répétée ;
+RPE trop haut ;
+stagnation ;
+baisse de volume.
+
+Exemple :
+
+“Risque de stagnation dans 7 jours si sommeil reste sous 6h.”
+
+Impact psychologique
+
+Crée urgence utile.
+
+Impact business
+
+Rend l’app indispensable.
+
+
+---------------------------------------------------
+22. Private Rival Coach
+Objectif
+
+Utiliser le duel comme levier intelligent.
+
+Problème résolu
+
+Le duel peut devenir juste un score. Il faut de la tension.
+
+Fonctionnement détaillé
+
+L’app donne des messages personnalisés :
+
+“Teoman a plus de régularité nutrition.”
+“Denizhan progresse plus vite sur le dos.”
+“Tu peux repasser devant avec sommeil + nutrition aujourd’hui.”
+
+Mais éviter :
+
+humiliation ;
+gamification enfantine.
+Impact psychologique
+
+Compétition directe et saine.
+
+Impact business
+
+Très viral entre amis/frères.
+
+
+---------------------------------------------------
+23. Weekly Weakness Target
+Objectif
+
+Chaque semaine, identifier le point faible principal.
+
+Problème résolu
+
+Les utilisateurs veulent tout améliorer, donc rien ne change.
+
+Fonctionnement détaillé
+
+TwinFit choisit un seul focus :
+
+protéines ;
+sommeil ;
+eau ;
+pec haut ;
+dos ;
+calories ;
+régularité.
+
+Exemple :
+
+“Focus semaine : sommeil. Objectif : 4 nuits à 7h minimum.”
+
+Impact psychologique
+
+Clarté totale.
+
+Impact business
+
+Meilleurs résultats → meilleure rétention.
+
+
+---------------------------------------------------
+25. “Coach Memory”
+Objectif
+
+Créer l’impression que l’app connaît l’utilisateur.
+
+Problème résolu
+
+Les apps oublient le contexte.
+
+Fonctionnement détaillé
+
+TwinFit garde des observations :
+
+“Teoman chute en force quand il dort <6h.”
+“Denizhan progresse mieux quand calories >2900.”
+“Les épaules répondent bien au volume élevé.”
+“Le cardio trop fréquent ralentit la prise.”
+
+Ces insights ressortent plus tard.
+
+Impact psychologique
+
+L’app paraît personnalisée.
+
+Impact business
+
+Très forte valeur perçue.

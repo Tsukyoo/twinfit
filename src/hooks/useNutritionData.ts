@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import type { NutritionLog, NutritionTargets, ProfileId } from '../types';
 import { nutritionLogRepo } from '../db/repositories';
 import { getProfileById } from '../data/profiles';
+import { getLocalDateISO, getDaysAgoISO } from '../utils/dates';
 
 export interface MealInput {
   calories: number;
@@ -20,13 +21,11 @@ export interface NutritionData {
 }
 
 function todayDateStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return getLocalDateISO();
 }
 
 function last7DaysStart(): string {
-  const d = new Date();
-  d.setDate(d.getDate() - 6);
-  return d.toISOString().split('T')[0];
+  return getDaysAgoISO(6);
 }
 
 export function useNutritionData(profileId: ProfileId): NutritionData {

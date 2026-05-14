@@ -6,9 +6,7 @@ import {
   workoutSessionRepo,
   bodyLogRepo,
   nutritionLogRepo,
-  exportAllData,
 } from '../db/repositories';
-import { resetAndSeed } from '../db/seed';
 
 export interface AppStats {
   sessionCount: number;
@@ -23,8 +21,6 @@ export interface SettingsData {
   isLoadingStats: boolean;
   toggleTimerSound: () => void;
   toggleReducedMotion: () => void;
-  exportData: () => Promise<void>;
-  resetData: () => Promise<void>;
 }
 
 export function useSettingsData(profileId: ProfileId): SettingsData {
@@ -70,35 +66,6 @@ export function useSettingsData(profileId: ProfileId): SettingsData {
     persist({ ...settings, reducedMotion: !settings.reducedMotion });
   }, [settings, persist]);
 
-  const exportData = useCallback(async () => {
-    const data = await exportAllData();
-    const json = JSON.stringify(data, null, 2);
-    const blob = new Blob([json], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `twinfit-export-${new Date().toISOString().split('T')[0]}.json`;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  }, []);
-
-  const resetData = useCallback(async () => {
-    await resetAndSeed();
-    // Reload stats after reset
-    const [sessions, bodyLogs, nutritionLogs] = await Promise.all([
-      workoutSessionRepo.getByProfile(profileId),
-      bodyLogRepo.getByProfile(profileId),
-      nutritionLogRepo.getByProfile(profileId),
-    ]);
-    setStats({
-      sessionCount: sessions.length,
-      bodyLogCount: bodyLogs.length,
-      nutritionLogCount: nutritionLogs.length,
-    });
-  }, [profileId]);
-
   return {
     settings,
     profileName,
@@ -106,7 +73,5 @@ export function useSettingsData(profileId: ProfileId): SettingsData {
     isLoadingStats,
     toggleTimerSound,
     toggleReducedMotion,
-    exportData,
-    resetData,
   };
 }

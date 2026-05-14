@@ -5,10 +5,12 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import type { WorkoutSession, SetLog, ProfileId, WorkoutPlan } from '../types';
+import type { WorkoutSession, SetLog, ProfileId, WorkoutPlan, BonusWorkoutType } from '../types';
 import { workoutSessionRepo, setLogRepo } from '../db/repositories';
 import { getWorkoutPlanById } from '../data/workoutPlans';
 import { getExerciseById } from '../data/exercises';
+import { getBonusWorkoutPlanById } from '../data/bonusWorkoutPlans';
+import { playRestTimerFeedback } from '../utils/restTimerFeedback';
 import {
   getRestInfo,
   detectPR,
@@ -33,6 +35,7 @@ export interface ActiveSetInput {
 
 export type WorkoutPhase =
   | 'loading'         // fetching session from IDB
+  | 'error'           // plan not found or other error
   | 'resume_prompt'   // existing active session found
   | 'active'          // normal training
   | 'rest'            // rest timer running
@@ -61,6 +64,7 @@ export interface WorkoutState {
   prEvents: PREvent[];
   totalPoints: number;
   existingSession: WorkoutSession | null; // for resume_prompt
+  error?: string;                 // error message if phase is 'error'
 }
 
 export interface ActiveWorkoutActions {
@@ -89,7 +93,16 @@ const DEFAULT_INPUT: ActiveSetInput = {
   isBonus: false,
 };
 
-export function useActiveWorkout(profileId: ProfileId, planId: string) {
+export function useActiveWorkout(
+  profileId: ProfileId,
+  planId: string,
+  options?: {
+    isBonus?: boolean;
+    bonusType?: BonusWorkoutType;
+    sourcePlanId?: string;
+    soundEnabled?: boolean;
+  }
+) {
   const [state, setState] = useState<WorkoutState>({
     phase: 'loading',
     session: null,
@@ -108,6 +121,8 @@ export function useActiveWorkout(profileId: ProfileId, planId: string) {
 
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const allHistoricalLogs = useRef<SetLog[]>([]);
+  const completedSessionIds = useRef<Set<string>>(new Set());
+  const feedbackPendingRef = useRef(false);
 
   // ── Clear timer helper ─────────────────────────────────────────────────
   const clearTimer = useCallback(() => {
@@ -137,6 +152,7 @@ export function useActiveWorkout(profileId: ProfileId, planId: string) {
         if (next <= 0) {
           clearInterval(timerRef.current!);
           timerRef.current = null;
+          feedbackPendingRef.current = true;
           return { ...s, phase: 'active', restSecondsLeft: 0, restInfo: null };
         }
         return { ...s, restSecondsLeft: next };
@@ -144,63 +160,106 @@ export function useActiveWorkout(profileId: ProfileId, planId: string) {
     }, 1000);
   }, [clearTimer]);
 
+  // ── Rest timer feedback ───────────────────────────────────────────────
+  useEffect(() => {
+    if (state.phase === 'active' && feedbackPendingRef.current) {
+      feedbackPendingRef.current = false;
+      playRestTimerFeedback(options?.soundEnabled ?? true).catch(() => {});
+    }
+  }, [state.phase, options?.soundEnabled]);
+
   // ── Initial load ───────────────────────────────────────────────────────
   useEffect(() => {
     let cancelled = false;
     async function init() {
-      const plan = getWorkoutPlanById(planId);
-      if (!plan) {
-        console.error(`Plan not found: ${planId}`);
-        return;
-      }
+      try {
+        // Try to find plan in regular workout plans first, then in bonus plans
+        let plan = getWorkoutPlanById(planId);
+        if (!plan && planId.startsWith('bonus-')) {
+          plan = getBonusWorkoutPlanById(planId);
+        }
+        if (!plan) {
+          console.error(`[useActiveWorkout] Plan not found: ${planId}`);
+          setState((s) => ({ ...s, phase: 'error', error: `Séance introuvable: ${planId}` }));
+          return;
+        }
 
       // Load all historical set logs for pre-fill / PR detection
-      const hist = await setLogRepo.getByProfile(profileId);
+      const [hist, allSessions] = await Promise.all([
+        setLogRepo.getByProfile(profileId),
+        workoutSessionRepo.getByProfile(profileId),
+      ]);
       allHistoricalLogs.current = hist;
+      completedSessionIds.current = new Set(
+        allSessions.filter((s) => s.status === 'completed').map((s) => s.id)
+      );
 
       // Check for existing active session
       const existing = await workoutSessionRepo.getActiveByProfile(profileId);
       if (cancelled) return;
 
-      if (existing && existing.workoutPlanId === planId) {
-        // Offer to resume
-        const doneSets = await setLogRepo.getBySession(existing.id);
-        // Determine where we are
-        const exIdx = computeCurrentExerciseIndex(plan, doneSets);
-        const setIdx = computeCurrentSetIndex(plan, exIdx, doneSets);
-        const lastInput = buildDefaultInput(plan, exIdx, setIdx, hist);
+      if (existing) {
+        console.warn('[useActiveWorkout] Found active session:', existing.id, 'planId:', existing.workoutPlanId, 'isBonus:', existing.isBonusWorkout);
 
-        setState((s) => ({
-          ...s,
-          phase: 'resume_prompt',
-          plan,
-          existingSession: existing,
-          session: existing,
-          currentExerciseIndex: exIdx,
-          currentSetIndex: setIdx,
-          completedSets: doneSets,
-          currentInput: lastInput,
-          totalPoints: doneSets.length * POINTS_PER_SET,
-        }));
-      } else if (existing && existing.workoutPlanId !== planId) {
-        // Different plan active — offer to abandon it, then start new
-        setState((s) => ({
-          ...s,
-          phase: 'resume_prompt',
-          plan,
-          existingSession: existing,
-        }));
-      } else {
-        // No active session — auto-start
-        await doStartSession(profileId, planId, plan, hist, setState);
+        // Check if session has invalid planId (contains timestamp pattern)
+        const hasInvalidPlanId = existing.workoutPlanId.match(/bonus-.*-\d{13,}$/);
+        
+        // Check if session's plan still exists
+        let existingPlanValid = false;
+        if (!hasInvalidPlanId) {
+          existingPlanValid = !!getWorkoutPlanById(existing.workoutPlanId) || 
+                             (existing.workoutPlanId.startsWith('bonus-') && !!getBonusWorkoutPlanById(existing.workoutPlanId));
+        }
+
+        // If session has invalid plan or plan doesn't exist, cancel it
+        if (hasInvalidPlanId || !existingPlanValid) {
+          console.warn('[useActiveWorkout] Cancelling invalid session with planId:', existing.workoutPlanId);
+          await workoutSessionRepo.update({ ...existing, status: 'cancelled' });
+          // Continue to create new session
+        } else if (existing.workoutPlanId === planId && existing.isBonusWorkout === options?.isBonus) {
+          // Session matches current plan and bonus status - offer to resume
+          console.warn('[useActiveWorkout] Session matches, offering resume');
+          const doneSets = await setLogRepo.getBySession(existing.id);
+          const exIdx = computeCurrentExerciseIndex(plan, doneSets);
+          const setIdx = computeCurrentSetIndex(plan, exIdx, doneSets);
+          const lastInput = buildDefaultInput(plan, exIdx, setIdx, hist);
+
+          setState((s) => ({
+            ...s,
+            phase: 'resume_prompt',
+            plan,
+            existingSession: existing,
+            session: existing,
+            currentExerciseIndex: exIdx,
+            currentSetIndex: setIdx,
+            completedSets: doneSets,
+            currentInput: lastInput,
+            totalPoints: doneSets.length * POINTS_PER_SET,
+          }));
+          return;
+        } else {
+          // Different plan or bonus status - offer to abandon
+          console.warn('[useActiveWorkout] Session mismatch - different plan/bonus status');
+          setState((s) => ({
+            ...s,
+            phase: 'resume_prompt',
+            plan,
+            existingSession: existing,
+          }));
+          return;
+        }
       }
+
+      // No valid existing session — auto-start
+      console.warn('[useActiveWorkout] No valid session, starting new');
+      await doStartSession(profileId, planId, plan, hist, setState, options?.isBonus, options?.bonusType, options?.sourcePlanId);
+    } catch (err) {
+      console.error('[useActiveWorkout] Error initializing workout:', err);
+      setState((s) => ({ ...s, phase: 'error', error: 'Erreur lors du chargement de la séance' }));
     }
-    init().catch(console.error);
-    return () => {
-      cancelled = true;
-      clearTimer();
-    };
-  }, [profileId, planId, clearTimer]);
+  }
+  init();
+}, [profileId, planId, options?.isBonus, options?.bonusType, options?.sourcePlanId]);
 
   // ── Cleanup on unmount ─────────────────────────────────────────────────
   useEffect(() => () => clearTimer(), [clearTimer]);
@@ -208,10 +267,13 @@ export function useActiveWorkout(profileId: ProfileId, planId: string) {
   // ── Actions ────────────────────────────────────────────────────────────
 
   const startSession = useCallback(async (pid: ProfileId, pId: string) => {
-    const plan = getWorkoutPlanById(pId);
+    let plan = getWorkoutPlanById(pId);
+    if (!plan && pId.startsWith('bonus-')) {
+      plan = getBonusWorkoutPlanById(pId);
+    }
     if (!plan) return;
-    await doStartSession(pid, pId, plan, allHistoricalLogs.current, setState);
-  }, []);
+    await doStartSession(pid, pId, plan, allHistoricalLogs.current, setState, options?.isBonus, options?.bonusType, options?.sourcePlanId);
+  }, [options]);
 
   const resumeSession = useCallback(() => {
     setState((s) => ({ ...s, phase: 'active', existingSession: null }));
@@ -228,19 +290,52 @@ export function useActiveWorkout(profileId: ProfileId, planId: string) {
 
   const abandonAndRestart = useCallback(async (pid: ProfileId, pId: string) => {
     clearTimer();
-    // Cancel existing session without triggering 'abandoned' navigation
+    // Cancel existing session
     const currentSession = state.session ?? state.existingSession;
     if (currentSession) {
+      console.warn('[useActiveWorkout] Cancelling session:', currentSession.id);
       await workoutSessionRepo.update({ ...currentSession, status: 'cancelled' });
     }
-    const plan = getWorkoutPlanById(pId);
-    if (!plan) return;
+    
+    // Find plan (check both regular and bonus plans)
+    let plan = getWorkoutPlanById(pId);
+    if (!plan && pId.startsWith('bonus-')) {
+      plan = getBonusWorkoutPlanById(pId);
+    }
+    if (!plan) {
+      console.error('[useActiveWorkout] Plan not found for restart:', pId);
+      setState((s) => ({ ...s, phase: 'error', error: `Séance introuvable: ${pId}` }));
+      return;
+    }
+    
     // Reload historical logs
-    const hist = await setLogRepo.getByProfile(pid);
+    const [hist, allSessions] = await Promise.all([
+      setLogRepo.getByProfile(pid),
+      workoutSessionRepo.getByProfile(pid),
+    ]);
     allHistoricalLogs.current = hist;
-    // Start fresh — goes directly to 'active' without resume_prompt
-    await doStartSession(pid, pId, plan, hist, setState);
-  }, [state, clearTimer]);
+    completedSessionIds.current = new Set(
+      allSessions.filter((s) => s.status === 'completed').map((s) => s.id)
+    );
+    
+    // Reset state completely before starting new session
+    setState((s) => ({
+      ...s,
+      phase: 'loading',
+      session: null,
+      existingSession: null,
+      currentExerciseIndex: 0,
+      currentSetIndex: 0,
+      completedSets: [],
+      prEvents: [],
+      totalPoints: 0,
+      error: undefined,
+    }));
+    
+    // Start fresh session
+    console.warn('[useActiveWorkout] Starting fresh session after abandon');
+    await doStartSession(pid, pId, plan, hist, setState, options?.isBonus, options?.bonusType, options?.sourcePlanId);
+  }, [state, clearTimer, options]);
 
   const updateInput = useCallback((patch: Partial<ActiveSetInput>) => {
     setState((s) => ({ ...s, currentInput: { ...s.currentInput, ...patch } }));
@@ -453,7 +548,7 @@ export function useActiveWorkout(profileId: ProfileId, planId: string) {
     finishSession,
   };
 
-  return { state, actions };
+  return { state, actions, allHistoricalLogs, completedSessionIds };
 }
 
 // ========== Private helpers ==========
@@ -464,6 +559,9 @@ async function doStartSession(
   plan: WorkoutPlan,
   hist: SetLog[],
   setState: React.Dispatch<React.SetStateAction<WorkoutState>>,
+  isBonus: boolean = false,
+  bonusType?: BonusWorkoutType,
+  sourcePlanId?: string,
 ) {
   const now = new Date().toISOString();
   const session = await workoutSessionRepo.create({
@@ -472,6 +570,9 @@ async function doStartSession(
     name: plan.name,
     startedAt: now,
     status: 'active',
+    isBonusWorkout: isBonus,
+    bonusType: bonusType,
+    sourcePlanId: sourcePlanId,
   });
   const firstInput = buildDefaultInput(plan, 0, 0, hist);
   setState((s) => ({

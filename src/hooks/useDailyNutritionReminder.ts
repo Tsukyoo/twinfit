@@ -1,9 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { ProfileId } from '../types';
 import { nutritionLogRepo } from '../db/repositories';
+import { getLocalDateISO } from '../utils/dates';
 
 function todayDateStr(): string {
-  return new Date().toISOString().split('T')[0];
+  return getLocalDateISO();
 }
 
 function dismissKey(profileId: ProfileId): string {

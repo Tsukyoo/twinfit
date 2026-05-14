@@ -1,7 +1,7 @@
 // IndexedDB types are used implicitly through generic functions
 
 const DB_NAME = 'twinfit_db';
-const DB_VERSION = 1;
+const DB_VERSION = 3;
 
 // Store names
 export const STORES = {
@@ -11,6 +11,8 @@ export const STORES = {
   BODY_LOGS: 'bodyLogs',
   WEEKLY_CHECKINS: 'weeklyCheckins',
   LEADERBOARD_SCORES: 'leaderboardScores',
+  SLEEP_LOGS: 'sleepLogs',
+  WEEKLY_DUEL_RESULTS: 'weeklyDuelResults',
   BACKUPS: 'backups',
 } as const;
 
@@ -90,6 +92,22 @@ export async function openDB(): Promise<IDBDatabase> {
         });
         scoreStore.createIndex('profileId', 'profileId', { unique: false });
         scoreStore.createIndex('weekStartDate', 'weekStartDate', { unique: false });
+      }
+
+      // Sleep Logs store (v2)
+      if (!database.objectStoreNames.contains(STORES.SLEEP_LOGS)) {
+        const sleepStore = database.createObjectStore(STORES.SLEEP_LOGS, {
+          keyPath: 'id',
+        });
+        sleepStore.createIndex('profileId', 'profileId', { unique: false });
+        sleepStore.createIndex('date', 'date', { unique: false });
+      }
+
+      // Weekly Duel Results store (v3)
+      if (!database.objectStoreNames.contains(STORES.WEEKLY_DUEL_RESULTS)) {
+        const duelResultStore = database.createObjectStore(STORES.WEEKLY_DUEL_RESULTS, { keyPath: 'id' });
+        duelResultStore.createIndex('weekStart', 'weekStart', { unique: true });
+        duelResultStore.createIndex('winnerProfileId', 'winnerProfileId', { unique: false });
       }
 
       // Backups store

@@ -7,6 +7,7 @@ import type { ProfileId, NutritionLog } from '../../types';
 import { useNutritionData } from '../../hooks/useNutritionData';
 import { useDailyNutritionReminder } from '../../hooks/useDailyNutritionReminder';
 import { cn } from '@utils/cn';
+import { getNow } from '../../utils/dates';
 
 interface NutritionPageProps {
   profileId: ProfileId;
@@ -39,7 +40,7 @@ export function NutritionPage({ profileId, onChangeProfile }: NutritionPageProps
       {/* Title */}
       <div>
         <h1 className="text-3xl font-bold tracking-tight text-text-main">Nutrition</h1>
-        <p className="text-text-secondary mt-1">Suivi du {new Date().toLocaleDateString('fr-FR', DAY_FR)}</p>
+        <p className="text-text-secondary mt-1">Suivi du {getNow().toLocaleDateString('fr-FR', DAY_FR)}</p>
       </div>
 
       {/* ===== Rappel nutrition ===== */}

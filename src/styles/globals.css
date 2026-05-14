@@ -107,10 +107,6 @@ input[type='number'] {
   appearance: textfield;
 }
 
-body.sheet-open .bottom-nav-bar {
-  display: none;
-}
-
 @layer utilities {
   .no-scrollbar::-webkit-scrollbar {
     display: none;

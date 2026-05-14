@@ -1,4 +1,5 @@
 import type { WorkoutPlan, ProfileId } from '../types';
+import { getDayOfWeek } from '../utils/dates';
 
 // ========== TEOMAN PROGRAMMES ==========
 
@@ -176,6 +177,6 @@ export function getWorkoutPlanForDay(profileId: ProfileId, day: string): Workout
 }
 
 export function getTodaysWorkoutPlan(profileId: ProfileId): WorkoutPlan | undefined {
-  const today = new Date().getDay().toString();
+  const today = getDayOfWeek().toString();
   return getWorkoutPlanForDay(profileId, today);
 }

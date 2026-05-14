@@ -1,11 +1,13 @@
 import { cn } from '@utils/cn';
-import { Activity, ChevronRight } from 'lucide-react';
+import { Activity, Settings } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import type { ProfileId } from '../types';
 
 interface HeaderProps {
   profileId?: ProfileId;
   onChangeProfile?: () => void;
   className?: string;
+  showSettings?: boolean;
 }
 
 const profileConfig: Record<ProfileId, { name: string; initial: string; gradient: string }> = {
@@ -21,7 +23,8 @@ const profileConfig: Record<ProfileId, { name: string; initial: string; gradient
   },
 };
 
-export function Header({ profileId, onChangeProfile, className }: HeaderProps) {
+export function Header({ profileId, className, showSettings = true }: HeaderProps) {
+  const navigate = useNavigate();
   return (
     <header
       className={cn(
@@ -41,32 +44,30 @@ export function Header({ profileId, onChangeProfile, className }: HeaderProps) {
           </span>
         </div>
 
-        {/* Profile Info */}
-        {profileId && profileConfig[profileId] ? (
-          <button
-            onClick={onChangeProfile}
-            className="flex items-center gap-3 active:scale-95 transition-transform"
-          >
+        {/* Right side: profile avatar + settings */}
+        <div className="flex items-center gap-2">
+          {profileId && profileConfig[profileId] && (
             <div
               className={cn(
-                'w-9 h-9 rounded-full bg-gradient-to-br flex items-center justify-center',
+                'w-8 h-8 rounded-full bg-gradient-to-br flex items-center justify-center',
                 profileConfig[profileId].gradient
               )}
             >
-              <span className="text-white font-semibold text-sm">
+              <span className="text-white font-semibold text-xs">
                 {profileConfig[profileId].initial}
               </span>
             </div>
-            <span className="font-medium text-sm text-text-main hidden sm:inline">
-              {profileConfig[profileId].name}
-            </span>
-            <ChevronRight className="w-4 h-4 text-text-secondary" />
-          </button>
-        ) : (
-          <div className="text-sm text-text-secondary">
-            Sélectionner un profil
-          </div>
-        )}
+          )}
+          {showSettings && (
+            <button
+              onClick={() => navigate('/settings')}
+              className="w-9 h-9 rounded-xl bg-surface-muted flex items-center justify-center active:scale-95 transition-transform"
+              aria-label="Paramètres"
+            >
+              <Settings className="w-5 h-5 text-text-secondary" />
+            </button>
+          )}
+        </div>
       </div>
     </header>
   );

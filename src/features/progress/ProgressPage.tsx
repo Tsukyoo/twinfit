@@ -245,6 +245,7 @@ export function ProgressPage({ profileId, onChangeProfile }: ProgressPageProps) 
       {showSheet && (
         <AddWeightSheet
           lastWeightKg={currentWeightKg}
+          suggestedWeightKg={currentWeightKg ?? initialWeightKg}
           gradient={visuals.gradient}
           mode="create"
           onSave={addLog}
@@ -256,11 +257,12 @@ export function ProgressPage({ profileId, onChangeProfile }: ProgressPageProps) 
       {editingLog && (
         <AddWeightSheet
           lastWeightKg={currentWeightKg}
+          suggestedWeightKg={currentWeightKg ?? initialWeightKg}
           gradient={visuals.gradient}
           mode="edit"
-          initialData={{ weightKg: editingLog.weightKg, waistCm: editingLog.waistCm, notes: editingLog.notes }}
-          onSave={async (weightKg, waistCm, notes) => {
-            await updateLog(editingLog, weightKg, waistCm, notes);
+          initialData={{ weightKg: editingLog.weightKg, notes: editingLog.notes }}
+          onSave={async (weightKg, _waistCm, notes) => {
+            await updateLog(editingLog, weightKg, undefined, notes);
           }}
           onClose={() => setEditingLog(null)}
         />
@@ -280,6 +282,7 @@ export function ProgressPage({ profileId, onChangeProfile }: ProgressPageProps) 
       {showWeighInSheet && (
         <AddWeightSheet
           lastWeightKg={currentWeightKg}
+          suggestedWeightKg={currentWeightKg ?? initialWeightKg}
           gradient={visuals.gradient}
           mode="create"
           onSave={async (weightKg, waistCm, notes) => {

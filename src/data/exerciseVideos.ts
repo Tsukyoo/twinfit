@@ -1,8 +1,13 @@
+import { assetPath } from '../utils/assets';
+
 /**
  * Central registry of exercise video/GIF paths.
  * GIFs must be placed in /public/media/exercises/
  * Source of truth: README_EXERCISE_MEDIA.md
  * When a GIF is not yet available, the UI will show a premium fallback placeholder.
+ *
+ * NOTE: These paths are relative to the public folder.
+ * Use getExerciseVideoPath() which wraps them with assetPath() for GitHub Pages compatibility.
  */
 export const EXERCISE_VIDEO_PATHS: Record<string, string> = {
   'db-incline-press':            '/media/exercises/incline-db-press.gif',
@@ -77,6 +82,12 @@ export const REQUIRED_GIF_FILES = [
   'incline-treadmill.gif',
 ];
 
+/**
+ * Get the full path to an exercise GIF/video.
+ * Automatically handles GitHub Pages base URL via assetPath().
+ */
 export function getExerciseVideoPath(exerciseId: string): string | undefined {
-  return EXERCISE_VIDEO_PATHS[exerciseId];
+  const path = EXERCISE_VIDEO_PATHS[exerciseId];
+  if (!path) return undefined;
+  return assetPath(path);
 }
